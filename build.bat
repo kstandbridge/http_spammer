@@ -41,7 +41,7 @@ pushd bin
 
 if "%~1"=="build_release" (
 
-	cl %CommonCompilerFlags% -O2 -I..\src ..\lib\kengine\code\win32_kengine.c /Fe:win32_http_spammer.exe /link /NODEFAULTLIB /SUBSYSTEM:windows %CommonLinkerFlags%
+	cl %CommonCompilerFlags% -O2 -DKENGINE_CONSOLE=1 -I..\src ..\lib\kengine\code\win32_kengine.c /Fe:win32_http_spammer.exe /link /NODEFAULTLIB /SUBSYSTEM:console %CommonLinkerFlags%
 
 ) else (
 	if "%~1"=="build_dependencies" (
@@ -67,7 +67,7 @@ if "%~1"=="build_release" (
 
 		REM Application
 		echo WAITING FOR PDB > lock.tmp
-		cl %CommonCompilerFlags% %InternalCompilerFlags% -DKENGINE_CONSOLE=1 -MTd -Od -I..\src ..\lib\kengine\code\kengine.c -LD /link %CommonLinkerFlags% -PDB:kengine_%random%.pdb -EXPORT:AppTick_
+		cl %CommonCompilerFlags% %InternalCompilerFlags% -MTd -Od -DKENGINE_CONSOLE=1 -I..\src ..\lib\kengine\code\kengine.c -LD /link %CommonLinkerFlags% -PDB:kengine_%random%.pdb -EXPORT:AppTick_
 		del lock.tmp
 	
 	)
