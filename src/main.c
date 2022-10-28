@@ -2,6 +2,8 @@ typedef struct spam_work
 {
     memory_arena Arena;
     random_state *RandomState;
+    string Hostname;
+    u32 Port;
 } spam_work;
 
 // NOTE(kstandbridge): This is a mandatory struct you must define, it needs to include Arena
@@ -15,15 +17,6 @@ typedef struct app_state
     platform_work_queue *WorkerQueue;
     spam_work *SpamWorks[16];
 } app_state;
-
-extern void
-AppHandleCommand(app_memory *Memory, string Command, u32 ArgCount, string *Args)
-{
-    // NOTE(kstandbridge): This is called once at startup for any command line arguments passed.
-    
-    // NOTE(kstandbridge): Additionally while not used in this example if you called InitConsoleCommandLoop
-    // then this will  be called again each time a command is entered into the console.
-}
 
 internal void
 SpamThread(spam_work *SpamWork)
@@ -46,9 +39,10 @@ SpamThread(spam_work *SpamWork)
         
         platform_http_request Request = Platform.BeginHttpRequest(&Client, HttpVerb_Get, "/echo");
         Request.Payload = FormatString(MemoryFlush.Arena, "ThreadId: %u Message: %u Random: %u", ThreadId, SpamIndex, RandomU32(RandomState));
-        platform_http_response Response = Platform.GetHttpResonse(&Request);
+        u32 StatusCode = Platform.SendHttpRequest(&Request);
+        string Response = Platform.GetHttpResponse(&Request);
         
-        if(!StringsAreEqual(Request.Payload, Response.Payload))
+        if(!StringsAreEqual(Request.Payload, Response))
         {
             LogError("'%S' does not match '%S'", Request, Response);
         }
@@ -60,6 +54,52 @@ SpamThread(spam_work *SpamWork)
     Platform.EndHttpClient(&Client);
     
     LogVerbose("Sent %u requests", SpamCount);
+}
+
+inline void
+PrintHelp()
+{
+    Platform.ConsoleOut("Must specify hostname and port\n");
+    Platform.ConsoleOut("win32_http_spam.exe <hostname> <port>\n");
+}
+
+extern void
+AppHandleCommand(app_memory *Memory, string Command, u32 ArgCount, string *Args)
+{
+    // NOTE(kstandbridge): This is called once at startup for any command line arguments passed.
+    
+    // NOTE(kstandbridge): Additionally while not used in this example if you called InitConsoleCommandLoop
+    // then this will  be called again each time a command is entered into the console.
+    
+    app_state *AppState = Memory->AppState;
+    
+    if(ArgCount == 1)
+    {
+        string Hostname = Command;
+        u32 Port = 0;
+        ParseFromString(Args[0], "%u", &Port);
+        
+        LogVerbose("Spamming %S:%u", Hostname, Port);
+        
+        for(u32 WorkerIndex = 0;
+            WorkerIndex < ArrayCount(AppState->SpamWorks);
+            ++WorkerIndex)
+        {
+            // NOTE(kstandbridge): Bootsrap will allocate memory and place the returned pointer inside it. 
+            // Giving you an arena with its first memory the struct
+            spam_work *Worker = BootstrapPushStruct(spam_work, Arena);
+            Worker->RandomState = &AppState->RandomState;
+            Worker->Hostname = PushString_(&Worker->Arena, Hostname.Size, Hostname.Data);;
+            Worker->Port = Port;
+            AppState->SpamWorks[WorkerIndex] = Worker;
+            
+            Platform.AddWorkEntry(AppState->WorkerQueue, SpamThread, Worker);
+        }
+    }
+    else
+    {
+        PrintHelp();
+    }
 }
 
 internal void
@@ -74,18 +114,6 @@ AppInit(app_memory *Memory)
     
     AppState->WorkerQueue = Platform.MakeWorkQueue(&AppState->Arena, 8);
     
-    for(u32 WorkerIndex = 0;
-        WorkerIndex < ArrayCount(AppState->SpamWorks);
-        ++WorkerIndex)
-    {
-        // NOTE(kstandbridge): Bootsrap will allocate memory and place the returned pointer inside it. 
-        // Giving you an arena with its first memory the struct
-        spam_work *Worker = BootstrapPushStruct(spam_work, Arena);
-        Worker->RandomState = &AppState->RandomState;
-        AppState->SpamWorks[WorkerIndex] = Worker;
-        
-        Platform.AddWorkEntry(AppState->WorkerQueue, SpamThread, Worker);
-    }
 }
 
 internal void
@@ -93,12 +121,18 @@ AppTick(app_memory *Memory, f32 dtForFrame)
 {
     // NOTE(kstandbridge): This is the main application loop. Its called per frame in GUI based apps. 
     // Console app are set to 2 frames per second
-    
     app_state *AppState = Memory->AppState;
     
-    // NOTE(kstandbridge): This is a blocking call, it doesn't sleep but instead will take and process jobs from the queue
-    Platform.CompleteAllWork(AppState->WorkerQueue);
-    LogVerbose("All spam threads complete");
+    if(Memory->ArgCount == 1)
+    {
+        PrintHelp();
+    }
+    else
+    {    
+        // NOTE(kstandbridge): This is a blocking call, it doesn't sleep but instead will take and process jobs from the queue
+        Platform.CompleteAllWork(AppState->WorkerQueue);
+        Platform.ConsoleOut("All work complete.\n");
+    }
     
     // NOTE(kstandbridge): Setting this to false causes the main thread to stop looping which will close the application
     Memory->IsRunning = false;

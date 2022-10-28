@@ -41,7 +41,7 @@ pushd bin
 
 if "%~1"=="build_release" (
 
-	cl %CommonCompilerFlags% -O2 -DKENGINE_CONSOLE=1 -I..\src ..\lib\kengine\code\win32_kengine.c /Fe:win32_http_spammer.exe /link /NODEFAULTLIB /SUBSYSTEM:console %CommonLinkerFlags%
+	cl %CommonCompilerFlags% -O2 -DKENGINE_CONSOLE=1 -I..\src ..\lib\kengine\code\win32_kengine.c /Fe:http_spammer.exe /link /NODEFAULTLIB /SUBSYSTEM:console %CommonLinkerFlags% uuid.lib
 
 ) else (
 	if "%~1"=="build_dependencies" (
@@ -59,7 +59,7 @@ if "%~1"=="build_release" (
 		win32_kengine_tests.exe
 
 		REM Win32 platform
-		cl %CommonCompilerFlags% %InternalCompilerFlags% -MTd -Od -DKENGINE_CONSOLE=1 ..\lib\kengine\code\win32_kengine.c /Fe:win32_http_spammer.exe /link /NODEFAULTLIB /SUBSYSTEM:console %CommonLinkerFlags%
+		cl %CommonCompilerFlags% %InternalCompilerFlags% -MTd -Od -DKENGINE_CONSOLE=1 ..\lib\kengine\code\win32_kengine.c /Fe:http_spammer.exe /link /NODEFAULTLIB /SUBSYSTEM:console %CommonLinkerFlags% uuid.lib
 
 	) else (
 
